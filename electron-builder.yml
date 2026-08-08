@@ -1,0 +1,65 @@
+appId: com.ghsoonzahran.charity
+productName: GhsoonZahran
+copyright: جمعية غصون زهران الخيرية
+
+# better-sqlite3 ships prebuilt N-API binaries for every platform/arch inside
+# the npm package itself (node_modules/better-sqlite3/prebuilds/*.node) and
+# selects the right one at require() time — no per-target compilation needed.
+# electron-builder's default native-rebuild step tries to rebuild from source
+# instead, which node-gyp cannot cross-compile for win32 from this Linux
+# build machine; skipping it lets the bundled win32-x64 prebuild ship as-is.
+npmRebuild: false
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - electron/dist/**/*
+  - package.json
+  - "!src"
+  - "!electron/*.ts"
+  - "!electron/ipc/*.ts"
+  - "!**/*.map"
+  - "!**/*.ts"
+
+extraResources:
+  - from: out
+    to: out
+  - from: prisma/migrations
+    to: prisma/migrations
+  - from: prisma/sqlite-sql
+    to: prisma/sqlite-sql
+
+asarUnpack:
+  - "**/*.node"
+  - node_modules/.prisma/**
+  - node_modules/@prisma/**
+  - node_modules/better-sqlite3/**
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: GhsoonZahran-Setup.${ext}
+  # Building the Windows target from a Linux CI/sandbox host with no wine
+  # installed: signing and PE resource editing both shell out to Windows
+  # tools via wine. This produces an unsigned installer (expected — there is
+  # no code-signing certificate for this project) without requiring wine.
+  signAndEditExecutable: false
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: جمعية غصون زهران
+
+linux:
+  target:
+    - AppImage
+  category: Office
+
+publish: null

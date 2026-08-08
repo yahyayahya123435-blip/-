@@ -41,7 +41,17 @@ export async function createBackupZip(
   appVersion: string,
   dbVersion: string,
   fileName?: string,
+  /**
+   * Must run `PRAGMA wal_checkpoint(TRUNCATE)` (or equivalent) against the
+   * live connection before archiving. SQLite in WAL mode keeps recently
+   * committed rows in database.db-wal, not database.db itself — a backup
+   * that only zips database.db silently drops everything still sitting in
+   * the WAL file. Optional only so this pure-Node module doesn't need a
+   * Prisma/better-sqlite3 dependency of its own; callers MUST provide it.
+   */
+  checkpoint?: () => Promise<void>,
 ): Promise<string> {
+  await checkpoint?.();
   await fs.promises.mkdir(paths.backups, { recursive: true });
   const outName = fileName ?? timestampName();
   const outPath = path.join(paths.backups, outName);
@@ -113,7 +123,7 @@ export async function restoreBackupZip(
   paths: BackupPaths,
   currentAppVersion: string,
   currentDbVersion: string,
-  hooks: { beforeSwap: () => Promise<void>; afterSwap: () => Promise<void> },
+  hooks: { beforeSwap: () => Promise<void>; afterSwap: () => Promise<void>; checkpoint?: () => Promise<void> },
   tempDir: string,
 ): Promise<{ manifest: BackupManifest; preRestoreBackupPath: string }> {
   const extractDir = path.join(tempDir, `restore-${Date.now()}`);
@@ -141,6 +151,7 @@ export async function restoreBackupZip(
     currentAppVersion,
     currentDbVersion,
     `PreRestore_${timestampName()}`,
+    hooks.checkpoint,
   );
 
   try {

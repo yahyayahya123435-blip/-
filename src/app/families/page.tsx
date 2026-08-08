@@ -28,11 +28,36 @@ interface Family {
 interface FamilyMember {
   id: string;
   fullName: string;
+  nationalId?: string | null;
   relationship: string;
   gender: string;
   isDisabled: boolean;
   isStudent: boolean;
 }
+
+const RELATIONSHIP_OPTIONS = [
+  { value: 'رب أسرة', label: 'رب أسرة' },
+  { value: 'زوجة', label: 'زوجة' },
+  { value: 'ابن', label: 'ابن' },
+  { value: 'ابنة', label: 'ابنة' },
+  { value: 'أخرى', label: 'أخرى' },
+];
+const GENDER_OPTIONS = [
+  { value: 'ذكر', label: 'ذكر' },
+  { value: 'أنثى', label: 'أنثى' },
+];
+
+type MemberFormState = {
+  fullName: string;
+  nationalId: string;
+  relationship: string;
+  gender: string;
+  isDisabled: boolean;
+  isStudent: boolean;
+};
+const emptyMemberForm: MemberFormState = {
+  fullName: '', nationalId: '', relationship: '', gender: '', isDisabled: false, isStudent: false,
+};
 
 interface Beneficiary {
   id: string;
@@ -94,6 +119,11 @@ export default function FamiliesPage() {
   const [detail, setDetail] = useState<Family | null>(null);
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
+
+  const [memberFormOpen, setMemberFormOpen] = useState(false);
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [memberForm, setMemberForm] = useState<MemberFormState>(emptyMemberForm);
+  const [savingMember, setSavingMember] = useState(false);
 
   function loadList() {
     setLoading(true);
@@ -207,6 +237,73 @@ export default function FamiliesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, selectedId]);
 
+  function reloadMembers() {
+    if (!selectedId) return;
+    apiInvoke<FamilyMember[]>('familyMembers:list', { familyId: selectedId })
+      .then(setMembers)
+      .catch((e) => notify(e instanceof Error ? e.message : 'تعذر تحميل أفراد الأسرة', 'error'));
+  }
+
+  function openAddMember() {
+    setEditingMemberId(null);
+    setMemberForm(emptyMemberForm);
+    setMemberFormOpen(true);
+  }
+
+  function openEditMember(member: FamilyMember) {
+    setEditingMemberId(member.id);
+    setMemberForm({
+      fullName: member.fullName,
+      nationalId: member.nationalId ?? '',
+      relationship: member.relationship,
+      gender: member.gender,
+      isDisabled: member.isDisabled,
+      isStudent: member.isStudent,
+    });
+    setMemberFormOpen(true);
+  }
+
+  async function handleSaveMember(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedId) return;
+    setSavingMember(true);
+    try {
+      const payload = {
+        fullName: memberForm.fullName,
+        nationalId: memberForm.nationalId || undefined,
+        relationship: memberForm.relationship,
+        gender: memberForm.gender,
+        isDisabled: memberForm.isDisabled,
+        isStudent: memberForm.isStudent,
+      };
+      if (editingMemberId) {
+        await apiInvoke('familyMembers:update', { id: editingMemberId, ...payload });
+        notify('تم تحديث بيانات الفرد', 'success');
+      } else {
+        await apiInvoke('familyMembers:create', { familyId: selectedId, ...payload });
+        notify('تمت إضافة الفرد بنجاح', 'success');
+      }
+      setMemberFormOpen(false);
+      reloadMembers();
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'تعذر حفظ بيانات الفرد', 'error');
+    } finally {
+      setSavingMember(false);
+    }
+  }
+
+  async function handleDeleteMember(member: FamilyMember) {
+    const ok = await confirm({ title: 'حذف فرد', message: `هل تريد حذف "${member.fullName}" من أفراد الأسرة؟`, danger: true, confirmLabel: 'حذف' });
+    if (!ok) return;
+    try {
+      await apiInvoke('familyMembers:delete', { id: member.id });
+      notify('تم حذف الفرد', 'success');
+      reloadMembers();
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'تعذر حذف الفرد', 'error');
+    }
+  }
+
   const columns: Column<Family>[] = [
     { key: 'familyCode', header: 'الرمز' },
     { key: 'headOfFamilyName', header: 'رب الأسرة' },
@@ -255,18 +352,50 @@ export default function FamiliesPage() {
             </div>
 
             <div className="card p-4">
-              <h2 className="mb-3 font-bold">أفراد الأسرة ({members.length})</h2>
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="font-bold">أفراد الأسرة ({members.length})</h2>
+                {can('family_members', 'create') && (
+                  <button className="btn-secondary" onClick={openAddMember}>
+                    + إضافة فرد
+                  </button>
+                )}
+              </div>
               {members.length === 0 ? (
                 <p className="text-sm text-gray-500">لا يوجد أفراد مسجلون</p>
               ) : (
                 <table className="w-full text-right text-sm">
-                  <thead><tr className="border-b text-gray-500"><th className="px-2 py-1">الاسم</th><th className="px-2 py-1">صلة القرابة</th><th className="px-2 py-1">الجنس</th></tr></thead>
+                  <thead>
+                    <tr className="border-b text-gray-500">
+                      <th className="px-2 py-1">الاسم</th>
+                      <th className="px-2 py-1">صلة القرابة</th>
+                      <th className="px-2 py-1">الجنس</th>
+                      <th className="px-2 py-1">ذوي إعاقة</th>
+                      <th className="px-2 py-1">طالب</th>
+                      <th className="px-2 py-1" />
+                    </tr>
+                  </thead>
                   <tbody>
                     {members.map((m) => (
                       <tr key={m.id} className="border-b border-gray-50">
                         <td className="px-2 py-1">{m.fullName}</td>
                         <td className="px-2 py-1">{m.relationship}</td>
                         <td className="px-2 py-1">{m.gender}</td>
+                        <td className="px-2 py-1">{m.isDisabled ? 'نعم' : '—'}</td>
+                        <td className="px-2 py-1">{m.isStudent ? 'نعم' : '—'}</td>
+                        <td className="px-2 py-1 text-left">
+                          <div className="flex justify-end gap-2">
+                            {can('family_members', 'update') && (
+                              <button className="text-xs text-brand-600 hover:underline" onClick={() => openEditMember(m)}>
+                                تعديل
+                              </button>
+                            )}
+                            {can('family_members', 'delete') && (
+                              <button className="text-xs text-red-600 hover:underline" onClick={() => handleDeleteMember(m)}>
+                                حذف
+                              </button>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -296,6 +425,16 @@ export default function FamiliesPage() {
           </div>
         )}
         {formOpen && <FamilyFormModal form={form} setForm={setForm} onSubmit={handleSave} onClose={() => setFormOpen(false)} saving={saving} editing={!!editingId} />}
+        {memberFormOpen && (
+          <MemberFormModal
+            form={memberForm}
+            setForm={setMemberForm}
+            onSubmit={handleSaveMember}
+            onClose={() => setMemberFormOpen(false)}
+            saving={savingMember}
+            editing={!!editingMemberId}
+          />
+        )}
       </AppShell>
     );
   }
@@ -377,6 +516,47 @@ function FamilyFormModal({
           </div>
           <div className="col-span-2">
             <TextArea label="ملاحظات" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          </div>
+          <div className="col-span-2 flex justify-end gap-2">
+            <button type="button" className="btn-secondary" onClick={onClose}>إلغاء</button>
+            <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'جارٍ الحفظ...' : 'حفظ'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function MemberFormModal({
+  form, setForm, onSubmit, onClose, saving, editing,
+}: {
+  form: MemberFormState;
+  setForm: (f: MemberFormState) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  onClose: () => void;
+  saving: boolean;
+  editing: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+      <div className="card w-full max-w-lg p-6">
+        <h2 className="mb-4 text-lg font-bold">{editing ? 'تعديل بيانات الفرد' : 'إضافة فرد جديد'}</h2>
+        <form onSubmit={onSubmit} className="grid grid-cols-2 gap-4">
+          <div className="col-span-2">
+            <TextInput label="الاسم الكامل" required value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} />
+          </div>
+          <TextInput label="رقم الهوية" value={form.nationalId} onChange={(e) => setForm({ ...form, nationalId: e.target.value })} />
+          <Select label="صلة القرابة" required placeholder="اختر" options={RELATIONSHIP_OPTIONS} value={form.relationship} onChange={(e) => setForm({ ...form, relationship: e.target.value })} />
+          <Select label="الجنس" required placeholder="اختر" options={GENDER_OPTIONS} value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })} />
+          <div className="col-span-2 flex gap-6">
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500" checked={form.isDisabled} onChange={(e) => setForm({ ...form, isDisabled: e.target.checked })} />
+              من ذوي الإعاقة
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500" checked={form.isStudent} onChange={(e) => setForm({ ...form, isStudent: e.target.checked })} />
+              طالب/طالبة
+            </label>
           </div>
           <div className="col-span-2 flex justify-end gap-2">
             <button type="button" className="btn-secondary" onClick={onClose}>إلغاء</button>

@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { handlePermitted } from './handler';
 import { createBackupZip, listBackups, restoreBackupZip } from '../../src/services/backup';
 import { getRuntimePaths } from '../runtime-context';
-import { disconnectPrisma, initPrisma } from '../../src/lib/db';
+import { disconnectPrisma, initPrisma, checkpointWal } from '../../src/lib/db';
 import { getLatestMigrationName } from '../db-version';
 
 export function registerBackupHandlers(): void {
@@ -15,6 +15,8 @@ export function registerBackupHandlers(): void {
       { dbFile: paths.dbFile, attachments: paths.attachments, documents: paths.documents, metadata: paths.metadata, backups: paths.backups },
       app.getVersion(),
       getLatestMigrationName(),
+      undefined,
+      checkpointWal,
     );
     return { filePath };
   });
@@ -34,6 +36,7 @@ export function registerBackupHandlers(): void {
       app.getVersion(),
       getLatestMigrationName(),
       {
+        checkpoint: checkpointWal,
         beforeSwap: async () => disconnectPrisma(),
         afterSwap: async () => {
           initPrisma(paths.dbFile);

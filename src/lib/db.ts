@@ -23,6 +23,19 @@ export function getPrisma(): PrismaClient {
   return client;
 }
 
+/**
+ * Flushes WAL-mode content into the main database file. Must run before any
+ * operation (backup) that reads database.db directly from disk instead of
+ * through Prisma — otherwise recently committed rows still sitting in
+ * database.db-wal are silently missing from the copy.
+ */
+export async function checkpointWal(): Promise<void> {
+  // PRAGMA wal_checkpoint returns a result row (busy, log, checkpointed
+  // frame counts), so it must go through $queryRawUnsafe — $executeRawUnsafe
+  // rejects any statement that returns rows on SQLite.
+  await getPrisma().$queryRawUnsafe('PRAGMA wal_checkpoint(TRUNCATE)');
+}
+
 export async function disconnectPrisma(): Promise<void> {
   if (client) {
     await client.$disconnect();
