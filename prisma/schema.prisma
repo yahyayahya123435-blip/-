@@ -1,0 +1,534 @@
+// جمعية غصون زهران الخيرية — Local SQLite schema
+// Money: all monetary values stored as Int in fils (1 JOD = 1000 fils). NEVER Float/Decimal for money.
+// Enums: SQLite + Prisma does not support native enums -> stored as String, allowed values enforced by
+// CHECK-style triggers in prisma/sqlite-sql/constraints-and-context.sql (see comments per field below).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────── AUTH & ACCESS ───────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  fullName     String
+  passwordHash String
+  roleId       String
+  isActive     Boolean  @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  role          Role           @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  sessions      Session[]
+  fieldVisits   FieldVisit[]
+  approvals     Approval[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id     String @id @default(cuid())
+  module String
+  action String // view | create | update | delete | export | approve
+
+  rolePermissions RolePermission[]
+
+  @@unique([module, action])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String @id @default(cuid())
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// ─────────────────────────────── FAMILIES ───────────────────────────────
+
+model Family {
+  id              String   @id @default(cuid())
+  familyCode      String   @unique
+  headOfFamilyName String
+  headNationalId  String?
+  address         String?
+  city            String?
+  phone           String?
+  altPhone        String?
+  housingType     String?  // ملك | إيجار | أخرى
+  monthlyIncomeFils Int    @default(0)
+  economicLevel   String?  // فقير جداً | فقير | متوسط | ميسور (lookup-controlled)
+  notes           String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  members            FamilyMember[]
+  beneficiaries       Beneficiary[]
+  socialAssessments  SocialAssessment[]
+  fieldVisits        FieldVisit[]
+  assistances        Assistance[]
+
+  @@map("families")
+}
+
+model FamilyMember {
+  id           String    @id @default(cuid())
+  familyId     String
+  fullName     String
+  nationalId   String?
+  relationship String    // رب أسرة | زوجة | ابن | ابنة | أخرى
+  gender       String    // ذكر | أنثى
+  birthDate    DateTime?
+  isDisabled   Boolean   @default(false)
+  isStudent    Boolean   @default(false)
+  healthStatus String?
+  occupation   String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@map("family_members")
+}
+
+model Beneficiary {
+  id             String    @id @default(cuid())
+  familyId       String
+  fullName       String
+  nationalId     String?
+  phone          String?
+  birthDate      DateTime?
+  gender         String?
+  category       String?   // يتيم | مسن | مريض | ذوي إعاقة | أخرى
+  status         String    @default("نشط") // نشط | موقوف | مرفوض
+  notes          String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  family        Family              @relation(fields: [familyId], references: [id], onDelete: Restrict)
+  assessments   SocialAssessment[]
+  assistances   Assistance[]
+  campaignItems CampaignItem[]
+
+  @@index([familyId])
+  @@index([nationalId])
+  @@map("beneficiaries")
+}
+
+// ─────────────────────────────── SOCIAL RESEARCH ───────────────────────────────
+
+model SocialAssessment {
+  id             String   @id @default(cuid())
+  familyId       String
+  beneficiaryId  String?
+  researcherId   String?
+  assessmentDate DateTime @default(now())
+  economicLevel  String?
+  housingCondition String?
+  healthCondition  String?
+  educationLevel   String?
+  recommendation   String?
+  score            Int?
+  notes            String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  family      Family       @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  beneficiary Beneficiary? @relation(fields: [beneficiaryId], references: [id], onDelete: SetNull)
+
+  @@index([familyId])
+  @@map("social_assessments")
+}
+
+model FieldVisit {
+  id          String   @id @default(cuid())
+  familyId    String
+  userId      String?
+  visitDate   DateTime @default(now())
+  purpose     String?
+  findings    String?
+  status      String   @default("مكتملة") // مجدولة | مكتملة | ملغاة
+  nextVisitAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([familyId])
+  @@map("field_visits")
+}
+
+// ─────────────────────────────── ASSISTANCES / CAMPAIGNS ───────────────────────────────
+
+model AssistanceType {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  category    String   // نقدي | عيني
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assistances Assistance[]
+
+  @@map("assistance_types")
+}
+
+model Assistance {
+  id                String   @id @default(cuid())
+  beneficiaryId     String
+  familyId          String
+  assistanceTypeId  String
+  campaignId        String?
+  amountFils        Int      @default(0)
+  inventoryItemId   String?
+  quantity          Int?
+  status            String   @default("مصروفة") // معلقة | موافق عليها | مصروفة | مرفوضة
+  approvedById      String?
+  disbursedAt       DateTime @default(now())
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  beneficiary    Beneficiary     @relation(fields: [beneficiaryId], references: [id], onDelete: Restrict)
+  family         Family          @relation(fields: [familyId], references: [id], onDelete: Restrict)
+  assistanceType AssistanceType  @relation(fields: [assistanceTypeId], references: [id], onDelete: Restrict)
+  campaign       Campaign?       @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  inventoryItem  InventoryItem?  @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  @@index([beneficiaryId])
+  @@index([familyId])
+  @@map("assistances")
+}
+
+model Campaign {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  startDate   DateTime?
+  endDate     DateTime?
+  targetAmountFils Int @default(0)
+  status      String   @default("مفتوحة") // مخطط لها | مفتوحة | مغلقة
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items       CampaignItem[]
+  assistances Assistance[]
+
+  @@map("campaigns")
+}
+
+model CampaignItem {
+  id            String  @id @default(cuid())
+  campaignId    String
+  beneficiaryId String
+  plannedAmountFils Int @default(0)
+  status        String  @default("مخطط") // مخطط | تم الصرف
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  campaign    Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  beneficiary Beneficiary @relation(fields: [beneficiaryId], references: [id], onDelete: Restrict)
+
+  @@index([campaignId])
+  @@map("campaign_items")
+}
+
+// ─────────────────────────────── WAREHOUSE / INVENTORY ───────────────────────────────
+
+model Warehouse {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  location  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inventoryItems InventoryItem[]
+
+  @@map("warehouses")
+}
+
+model InventoryItem {
+  id            String   @id @default(cuid())
+  warehouseId   String
+  name          String
+  unit          String   // قطعة | كرتون | كيلو ...
+  quantity      Int      @default(0)
+  minQuantity   Int      @default(0)
+  unitPriceFils Int      @default(0)
+  category      String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  warehouse   Warehouse    @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  stockIns    StockIn[]
+  stockOuts   StockOut[]
+  assistances Assistance[]
+
+  @@index([warehouseId])
+  @@map("inventory_items")
+}
+
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  address   String?
+  notes     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stockIns StockIn[]
+
+  @@map("suppliers")
+}
+
+model StockIn {
+  id              String   @id @default(cuid())
+  inventoryItemId String
+  supplierId      String?
+  quantity        Int
+  unitPriceFils   Int      @default(0)
+  totalFils       Int      @default(0)
+  referenceNo     String?
+  receivedAt      DateTime @default(now())
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  supplier      Supplier?     @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  @@index([inventoryItemId])
+  @@map("stock_in")
+}
+
+model StockOut {
+  id              String   @id @default(cuid())
+  inventoryItemId String
+  quantity        Int
+  reason          String   // مساعدة | تالف | جرد | أخرى
+  referenceId     String?  // e.g. related assistance id
+  issuedAt        DateTime @default(now())
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  @@index([inventoryItemId])
+  @@map("stock_out")
+}
+
+// ─────────────────────────────── DONORS / DONATIONS ───────────────────────────────
+
+model Donor {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  donorType String   @default("فرد") // فرد | مؤسسة
+  notes     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  donations Donation[]
+
+  @@map("donors")
+}
+
+model Donation {
+  id          String   @id @default(cuid())
+  donorId     String
+  amountFils  Int      @default(0)
+  donationType String  @default("نقدي") // نقدي | عيني
+  method      String?  // كاش | تحويل بنكي | شيك
+  donatedAt   DateTime @default(now())
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  donor    Donor     @relation(fields: [donorId], references: [id], onDelete: Restrict)
+  receipts Receipt[]
+
+  @@index([donorId])
+  @@map("donations")
+}
+
+model Receipt {
+  id           String   @id @default(cuid())
+  donationId   String
+  receiptNo    String   @unique
+  amountFils   Int      @default(0)
+  issuedAt     DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  donation Donation @relation(fields: [donationId], references: [id], onDelete: Restrict)
+
+  @@map("receipts")
+}
+
+// ─────────────────────────────── ACCOUNTING ───────────────────────────────
+
+model ExpenseCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions Transaction[]
+
+  @@map("expense_categories")
+}
+
+model Transaction {
+  id            String   @id @default(cuid())
+  type          String   // دخل | مصروف
+  amountFils    Int
+  categoryId    String?
+  description   String?
+  referenceType String?  // donation | assistance | manual
+  referenceId   String?
+  transactionAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  category ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([transactionAt])
+  @@map("transactions")
+}
+
+// ─────────────────────────────── SYSTEM ───────────────────────────────
+
+model Attachment {
+  id           String   @id @default(cuid())
+  fileName     String
+  storedName   String
+  entityType   String   // families | beneficiaries | assistances | donations | ...
+  entityId     String
+  mimeType     String
+  sizeBytes    Int
+  uploadedById String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([entityType, entityId])
+  @@map("attachments")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String?
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  level     String   @default("معلومة") // معلومة | تحذير | خطأ
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Approval {
+  id          String   @id @default(cuid())
+  entityType  String
+  entityId    String
+  status      String   @default("قيد الانتظار") // قيد الانتظار | موافق عليه | مرفوض
+  requestedById String?
+  approvedById  String?
+  decidedAt   DateTime?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  approver User? @relation(fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@map("approvals")
+}
+
+model Setting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+
+  @@map("settings")
+}
+
+model LookupValue {
+  id       String  @id @default(cuid())
+  category String  // housing_type | economic_level | relationship | assistance_category ...
+  value    String
+  sortOrder Int    @default(0)
+  isActive Boolean @default(true)
+
+  @@unique([category, value])
+  @@map("lookup_values")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  username   String?
+  action     String   // INSERT | UPDATE | DELETE
+  tableName  String
+  recordId   String
+  oldValues  String?  // JSON
+  newValues  String?  // JSON
+  createdAt  DateTime @default(now())
+
+  @@index([tableName, recordId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
