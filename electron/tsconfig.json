@@ -12,5 +12,5 @@
     "types": ["node"]
   },
   "include": ["./**/*.ts", "../src/lib/**/*.ts", "../src/services/**/*.ts"],
-  "exclude": ["dist", "node_modules"]
+  "exclude": ["dist", "node_modules", "../src/lib/client/**/*"]
 }

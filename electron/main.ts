@@ -7,6 +7,7 @@ import { bootstrapDatabase } from '../src/lib/db-bootstrap';
 import { initPrisma, disconnectPrisma } from '../src/lib/db';
 import { initLogger, logger } from '../src/lib/logger';
 import { registerAllIpcHandlers } from './ipc';
+import { startStaticServer } from './static-server';
 
 app.setName('GhsoonZahran');
 
@@ -14,7 +15,9 @@ const isDev = !app.isPackaged;
 
 let mainWindow: BrowserWindow | null = null;
 
-function createWindow(): void {
+let staticServerClose: (() => void) | null = null;
+
+async function createWindow(): Promise<void> {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -41,7 +44,9 @@ function createWindow(): void {
   if (isDev) {
     mainWindow.loadURL('http://localhost:3100');
   } else {
-    mainWindow.loadFile(path.join(getResourceRoot(), 'out', 'index.html'));
+    const { url, close } = await startStaticServer(path.join(getResourceRoot(), 'out'));
+    staticServerClose = close;
+    mainWindow.loadURL(url);
   }
 
   mainWindow.on('closed', () => {
@@ -64,7 +69,7 @@ app.whenReady().then(async () => {
     throw err;
   }
 
-  createWindow();
+  await createWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -76,5 +81,6 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', async () => {
+  staticServerClose?.();
   await disconnectPrisma();
 });

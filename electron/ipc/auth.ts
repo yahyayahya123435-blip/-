@@ -2,7 +2,16 @@ import { z } from 'zod';
 import { handlePublic, handleAuthed } from './handler';
 import { hasAnyUser, createSuperAdmin, verifyLogin, setupInput, loginInput, changePassword } from '../../src/lib/auth';
 import { createSession, destroySession } from '../../src/lib/session';
+import { getUserPermissions } from '../../src/lib/permissions';
 import { AppError } from '../../src/lib/app-error';
+
+async function permissionList(userId: string): Promise<{ module: string; action: string }[]> {
+  const perms = await getUserPermissions(userId);
+  return [...perms].map((p) => {
+    const [module, action] = p.split('.');
+    return { module, action };
+  });
+}
 
 export function registerAuthHandlers(): void {
   handlePublic('auth:hasAnyUser', async () => {
@@ -12,7 +21,7 @@ export function registerAuthHandlers(): void {
   handlePublic<typeof setupInput._type>('auth:setup', async ({ payload }) => {
     const user = await createSuperAdmin(payload);
     const session = await createSession(user.id);
-    return { token: session.token, user: sanitizeUser(user) };
+    return { token: session.token, user: sanitizeUser(user), permissions: await permissionList(user.id) };
   });
 
   handlePublic<typeof loginInput._type>('auth:login', async ({ payload }) => {
@@ -22,7 +31,7 @@ export function registerAuthHandlers(): void {
       throw new AppError('INVALID_CREDENTIALS', 'اسم المستخدم أو كلمة المرور غير صحيحة');
     }
     const session = await createSession(user.id);
-    return { token: session.token, user: sanitizeUser(user) };
+    return { token: session.token, user: sanitizeUser(user), permissions: await permissionList(user.id) };
   });
 
   handleAuthed('auth:logout', async ({ token }) => {
@@ -30,8 +39,11 @@ export function registerAuthHandlers(): void {
     return { success: true };
   });
 
+  // Every authenticated user may read their OWN permission set — this is
+  // distinct from `roles:permissions` (users.view-gated) which lets admins
+  // inspect an arbitrary role while managing Users & Permissions.
   handleAuthed('auth:me', async ({ user }) => {
-    return { user: sanitizeUser(user) };
+    return { user: sanitizeUser(user), permissions: await permissionList(user.id) };
   });
 
   const changePasswordPayload = z.object({ currentPassword: z.string(), newPassword: z.string().min(8) });
