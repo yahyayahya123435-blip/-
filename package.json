@@ -4,7 +4,7 @@
   "description": "نظام إدارة جمعية غصون زهران الخيرية - تطبيق سطح مكتب محلي",
   "private": true,
   "author": "Ghsoon Zahran Charity",
-  "main": "electron/dist/main.js",
+  "main": "electron/dist/electron/main.js",
   "scripts": {
     "dev": "next dev -p 3100",
     "dev:electron": "npm run build:electron && concurrently -k \"npm:dev\" \"wait-on http://localhost:3100 && electron .\"",

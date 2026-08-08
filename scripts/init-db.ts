@@ -4,7 +4,7 @@
  * Run: npm run init:db
  */
 import path from 'node:path';
-import { bootstrapDatabase } from './db-bootstrap';
+import { bootstrapDatabase } from '../src/lib/db-bootstrap';
 
 const projectRoot = path.join(__dirname, '..');
 const dbFilePath = path.join(projectRoot, 'prisma', 'data', 'dev.db');

@@ -1,4 +1,7 @@
 /**
+ * SERVER-ONLY. Import only from electron/main.ts or scripts/*.ts — never
+ * from src/app or src/components (Next.js renderer bundle).
+ *
  * Applies pending Prisma migrations + constraint/trigger SQL to a SQLite
  * database file using better-sqlite3 (not the `sqlite3` CLI — the end user's
  * machine won't have it installed; better-sqlite3 ships as a native Node
