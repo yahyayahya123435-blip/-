@@ -24,7 +24,13 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # better-sqlite3@13 declares engines.node >= 22. On a Node-version
+          # mismatch its install script falls back to compiling from source
+          # via node-gyp instead of using its bundled prebuilt binary, which
+          # then fails here because this runner's Visual Studio/MSVC C++
+          # toolchain isn't set up for node-gyp. Matching the engine
+          # requirement avoids the source-build path entirely.
+          node-version: 22
 
       - name: Install dependencies
         run: npm ci
