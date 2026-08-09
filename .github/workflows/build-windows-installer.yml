@@ -69,8 +69,22 @@ jobs:
           npm install --no-save node-gyp
           $electronVersion = node -p "require('./node_modules/electron/package.json').version"
           Write-Host "Rebuilding better-sqlite3 for Electron $electronVersion"
+
+          # The actual root cause of the previous silent no-op: better-
+          # sqlite3's own binding.gyp computes prebuild_exists by running
+          # `node lib/binding.js` at gyp-configure time, and its real
+          # 'better_sqlite3' target only has real sources/deps when
+          # prebuild_exists==0 — otherwise it's declared 'type': 'none', an
+          # intentionally empty target (so a bare `npm install` never
+          # recompiles when a matching prebuild is already bundled). Since
+          # prebuilds/win32-x64.node was still sitting there when gyp
+          # configured, it built that empty target and reported success in
+          # ~4 seconds having done nothing. Removing the file first is what
+          # actually flips prebuild_exists to 0 and activates the real target.
+          Remove-Item node_modules/better-sqlite3/prebuilds/win32-x64.node -Force
+
           Push-Location node_modules/better-sqlite3
-          npx node-gyp rebuild --target=$electronVersion --arch=x64 --dist-url=https://electronjs.org/headers
+          npx node-gyp rebuild --target=$electronVersion --arch=x64 --dist-url=https://electronjs.org/headers --verbose
           Pop-Location
 
       - name: Verify the native rebuild actually produced a binary, and install it
