@@ -4,7 +4,7 @@
  * renderer runs as a static export with no server; it never talks to
  * Prisma/SQLite directly, only via IPC into this main-process module.
  */
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../generated/prisma';
 
 let client: PrismaClient | null = null;
 

@@ -5,6 +5,14 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Generating into node_modules/.prisma (the default) breaks electron-builder
+  // packaging: its node_modules walker never picks up that dot-prefixed
+  // directory, so the packaged app throws "Cannot find module
+  // '.prisma/client/default'" at startup even though it works in every dev/
+  // test run here. A plain, non-hidden output directory sidesteps the bug
+  // entirely and is Prisma's own recommended fix for bundler/packager
+  // compatibility issues like this one.
+  output = "../generated/prisma"
 }
 
 datasource db {

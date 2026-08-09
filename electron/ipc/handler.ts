@@ -10,7 +10,7 @@
  * messages and stack traces never reach the renderer.
  */
 import { ipcMain, type IpcMainInvokeEvent } from 'electron';
-import type { User } from '@prisma/client';
+import type { User } from '../../generated/prisma';
 import { toSafeError } from '../../src/lib/app-error';
 import { requireSession } from '../../src/lib/session';
 import { requirePermission, type PermissionAction } from '../../src/lib/permissions';

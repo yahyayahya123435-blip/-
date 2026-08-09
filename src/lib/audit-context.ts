@@ -12,7 +12,7 @@
  * AFTER INSERT/UPDATE/DELETE triggers (prisma/sqlite-sql/audit-triggers.sql)
  * can read back who performed it.
  */
-import type { Prisma, PrismaClient } from '@prisma/client';
+import type { Prisma, PrismaClient } from '../../generated/prisma';
 import { getPrisma } from './db';
 
 export type AuditActor = { userId: string | null; username: string | null };

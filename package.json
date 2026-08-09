@@ -10,7 +10,7 @@
     "dev": "next dev -p 3100",
     "dev:electron": "npm run build:electron && concurrently -k \"npm:dev\" \"wait-on http://localhost:3100 && electron .\"",
     "build": "next build",
-    "build:electron": "tsc -p electron/tsconfig.json",
+    "build:electron": "tsc -p electron/tsconfig.json && node scripts/copy-generated-prisma.js",
     "build:all": "npm run build && npm run build:electron",
     "start": "next start -p 3100",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p electron/tsconfig.json",

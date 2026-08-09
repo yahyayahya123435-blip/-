@@ -5,7 +5,7 @@
  * Never let a raw error (stack trace, "PrismaClientKnownRequestError",
  * a SQL trigger message) reach the UI directly.
  */
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../../generated/prisma';
 import { ZodError } from 'zod';
 import { logger } from './logger';
 import { PermissionDeniedError } from './permissions';
