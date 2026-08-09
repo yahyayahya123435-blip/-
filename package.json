@@ -6,6 +6,7 @@
   "author": "Ghsoon Zahran Charity",
   "main": "electron/dist/electron/main.js",
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "next dev -p 3100",
     "dev:electron": "npm run build:electron && concurrently -k \"npm:dev\" \"wait-on http://localhost:3100 && electron .\"",
     "build": "next build",
