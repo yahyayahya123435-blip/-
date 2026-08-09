@@ -59,14 +59,16 @@ jobs:
         # bundles a node-gyp too old for this runner's Python (which has
         # dropped the `distutils` module old node-gyp still imports),
         # failing with "ModuleNotFoundError: No module named 'distutils'".
-        # `npx @electron/rebuild ...` (package name as the command) then
-        # failed differently on this Windows/pwsh runner — npx fetched the
-        # package but couldn't resolve its bin script, named "electron-
-        # rebuild" internally, distinct from the scoped package name:
-        # "'electron-rebuild' is not recognized". The --package=/command
-        # form makes that package-to-binary mapping explicit instead of
-        # relying on npx's own (here unreliable) inference.
-        run: npx --package=@electron/rebuild electron-rebuild -f -w better-sqlite3
+        # `npx @electron/rebuild ...` and `npx --package=@electron/rebuild
+        # electron-rebuild ...` both failed identically on this Windows/pwsh
+        # runner ("'electron-rebuild' is not recognized") — npx's on-the-fly
+        # fetch-and-run path isn't resolving the package's bin script here,
+        # regardless of syntax. Installing it into node_modules first sidesteps
+        # that entirely: npx always checks local node_modules/.bin before any
+        # remote resolution, which is the reliable path on every platform.
+        run: |
+          npm install --no-save @electron/rebuild
+          npx electron-rebuild -f -w better-sqlite3
 
       - name: Build Next.js static export
         run: npm run build
