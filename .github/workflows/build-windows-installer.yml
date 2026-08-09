@@ -18,7 +18,11 @@ permissions:
 
 jobs:
   build-windows:
-    runs-on: windows-latest
+    # Pinned to windows-2022 rather than windows-latest: that most recently
+    # resolved to a windows-2025-vs2026 preview image whose Visual Studio
+    # version node-gyp doesn't recognize ("unknown version 'undefined'"),
+    # breaking any node-gyp-based build on that runner outright.
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
 
@@ -27,17 +31,28 @@ jobs:
           node-version: 22
 
       - name: Install dependencies (skip install-time scripts)
-        # On this Windows runner, `npm ci` attempts a node-gyp source build
-        # for better-sqlite3 (which ships prebuilt N-API binaries for every
-        # platform, win32-x64 included, precisely so this is unnecessary) and
-        # that build fails because node-gyp's Visual Studio detection doesn't
-        # recognize this image's VS version. --ignore-scripts skips that
-        # (and every other) install-time script; the only one we actually
-        # need — `prisma generate` — is then run explicitly below.
+        # `npm ci` attempts a node-gyp source build for better-sqlite3 (which
+        # ships prebuilt N-API binaries for every platform, win32-x64
+        # included) that isn't needed for a plain Node target and previously
+        # failed here on VS detection. --ignore-scripts skips that (and every
+        # other) install-time script; the ones we actually need run below.
         run: npm ci --ignore-scripts
 
       - name: Generate Prisma Client
         run: npx prisma generate
+
+      - name: Rebuild native modules for Electron's ABI
+        # better-sqlite3's bundled prebuilt binary targets plain Node's N-API
+        # ABI. N-API is supposed to be ABI-stable across Node and Electron
+        # builds, but empirically that bundled prebuild crashes on startup
+        # inside Electron's embedded Node/V8 (reproduced independently on
+        # both Linux and Windows) even though it works perfectly under plain
+        # Node every time. Rebuilding it specifically against the Electron
+        # version this app ships (read from package.json's devDependencies)
+        # is the actual fix — this needs real internet access to fetch
+        # Electron's headers, which this GitHub-hosted runner has and the
+        # sandboxed dev environment that first built this app did not.
+        run: npx electron-rebuild -f -w better-sqlite3
 
       - name: Build Next.js static export
         run: npm run build
