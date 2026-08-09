@@ -24,16 +24,20 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          # better-sqlite3@13 declares engines.node >= 22. On a Node-version
-          # mismatch its install script falls back to compiling from source
-          # via node-gyp instead of using its bundled prebuilt binary, which
-          # then fails here because this runner's Visual Studio/MSVC C++
-          # toolchain isn't set up for node-gyp. Matching the engine
-          # requirement avoids the source-build path entirely.
           node-version: 22
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install dependencies (skip install-time scripts)
+        # On this Windows runner, `npm ci` attempts a node-gyp source build
+        # for better-sqlite3 (which ships prebuilt N-API binaries for every
+        # platform, win32-x64 included, precisely so this is unnecessary) and
+        # that build fails because node-gyp's Visual Studio detection doesn't
+        # recognize this image's VS version. --ignore-scripts skips that
+        # (and every other) install-time script; the only one we actually
+        # need — `prisma generate` — is then run explicitly below.
+        run: npm ci --ignore-scripts
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
 
       - name: Build Next.js static export
         run: npm run build
