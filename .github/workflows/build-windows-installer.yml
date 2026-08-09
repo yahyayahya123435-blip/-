@@ -52,7 +52,15 @@ jobs:
         # is the actual fix — this needs real internet access to fetch
         # Electron's headers, which this GitHub-hosted runner has and the
         # sandboxed dev environment that first built this app did not.
-        run: npx electron-rebuild -f -w better-sqlite3
+        #
+        # Bare `npx electron-rebuild` resolves the old, abandoned
+        # "electron-rebuild" package (last published years ago as v3.2.9),
+        # not the actively maintained "@electron/rebuild" — that old package
+        # bundles a node-gyp too old for this runner's Python (which has
+        # dropped the `distutils` module old node-gyp still imports),
+        # failing with "ModuleNotFoundError: No module named 'distutils'".
+        # The scoped package name avoids that entirely.
+        run: npx @electron/rebuild -f -w better-sqlite3
 
       - name: Build Next.js static export
         run: npm run build
