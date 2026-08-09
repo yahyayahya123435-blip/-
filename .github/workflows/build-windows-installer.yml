@@ -48,27 +48,56 @@ jobs:
         # inside Electron's embedded Node/V8 (reproduced independently on
         # both Linux and Windows) even though it works perfectly under plain
         # Node every time. Rebuilding it specifically against the Electron
-        # version this app ships (read from package.json's devDependencies)
-        # is the actual fix — this needs real internet access to fetch
-        # Electron's headers, which this GitHub-hosted runner has and the
-        # sandboxed dev environment that first built this app did not.
+        # version this app ships is the actual fix — this needs real
+        # internet access to fetch Electron's headers, which this GitHub-
+        # hosted runner has and the sandboxed dev environment that first
+        # built this app did not.
         #
-        # Bare `npx electron-rebuild` resolves the old, abandoned
-        # "electron-rebuild" package (last published years ago as v3.2.9),
-        # not the actively maintained "@electron/rebuild" — that old package
-        # bundles a node-gyp too old for this runner's Python (which has
-        # dropped the `distutils` module old node-gyp still imports),
-        # failing with "ModuleNotFoundError: No module named 'distutils'".
-        # `npx @electron/rebuild ...` and `npx --package=@electron/rebuild
-        # electron-rebuild ...` both failed identically on this Windows/pwsh
-        # runner ("'electron-rebuild' is not recognized") — npx's on-the-fly
-        # fetch-and-run path isn't resolving the package's bin script here,
-        # regardless of syntax. Installing it into node_modules first sidesteps
-        # that entirely: npx always checks local node_modules/.bin before any
-        # remote resolution, which is the reliable path on every platform.
+        # Went through @electron/rebuild first (both bare `npx electron-
+        # rebuild` and `npx @electron/rebuild`/`--package=` forms), which
+        # kept failing on this Windows/pwsh runner — first on npx's own
+        # package/bin resolution, then, once that was worked around by
+        # installing it locally, it reported "Rebuild Complete" while
+        # silently NOT producing a linked binary at all (verified: build/
+        # Release/ only had compiler intermediates, no better_sqlite3.node,
+        # and the shipped prebuilds/win32-x64.node was byte-identical to the
+        # untouched original — a false-positive success). Calling node-gyp
+        # directly, with no abstraction layer hiding its output or silently
+        # swallowing a failed link step, is more transparent and is exactly
+        # what better-sqlite3's own "build-release" package.json script does.
         run: |
-          npm install --no-save @electron/rebuild
-          npx electron-rebuild -f -w better-sqlite3
+          npm install --no-save node-gyp
+          $electronVersion = node -p "require('./node_modules/electron/package.json').version"
+          Write-Host "Rebuilding better-sqlite3 for Electron $electronVersion"
+          Push-Location node_modules/better-sqlite3
+          npx node-gyp rebuild --target=$electronVersion --arch=x64 --dist-url=https://electronjs.org/headers
+          Pop-Location
+
+      - name: Verify the native rebuild actually produced a binary, and install it
+        # Don't trust a tool's own "success" message — the previous attempt
+        # printed "Rebuild Complete" while producing no linked output at all.
+        # Fail loudly here instead of silently shipping the untouched
+        # original (Node-ABI, not Electron-ABI) prebuild again.
+        #
+        # Second, more fundamental issue found by reading better-sqlite3's
+        # own loader (lib/binding.js -> getPrebuildPath()): a normal
+        # `require('better-sqlite3')` ALWAYS checks prebuilds/win32-x64.node
+        # first and uses it if present — it never even looks at build/
+        # Release unless that prebuilds file is missing. Since the bundled
+        # prebuild always exists, a build/Release output alone would be
+        # silently ignored at runtime even if node-gyp had linked it
+        # successfully. The rebuilt binary must overwrite prebuilds/
+        # win32-x64.node — that's the only file this package's loader ever
+        # actually checks on Windows.
+        run: |
+          $builtFile = "node_modules/better-sqlite3/build/Release/better_sqlite3.node"
+          if (-not (Test-Path $builtFile)) {
+            Write-Error "Rebuilt binary not found at $builtFile — native rebuild silently failed."
+            exit 1
+          }
+          Get-Item $builtFile | Format-List Name, Length, LastWriteTime
+          Copy-Item $builtFile "node_modules/better-sqlite3/prebuilds/win32-x64.node" -Force
+          Write-Host "Installed rebuilt binary over prebuilds/win32-x64.node (the file better-sqlite3's loader actually checks first)"
 
       - name: Build Next.js static export
         run: npm run build
