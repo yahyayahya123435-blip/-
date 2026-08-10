@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "غصون زهران - العمل الميداني",
+    "slug": "ghsoon-zahran-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "android": {
+      "package": "com.ghsoonzahran.fieldwork",
+      "versionCode": 1,
+      "permissions": ["READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE", "CAMERA"]
+    },
+    "extra": {
+      "eas": {}
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "يستخدم التطبيق الصور لإرفاقها بسجلات الزيارات الميدانية.",
+          "cameraPermission": "يستخدم التطبيق الكاميرا لتصوير مرفقات الزيارات الميدانية."
+        }
+      ]
+    ]
+  }
+}
