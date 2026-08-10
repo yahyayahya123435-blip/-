@@ -7,16 +7,19 @@
  * `password_hash` (users.passwordHash) is explicitly excluded from every
  * audit payload so credential hashes never land in audit_logs.
  */
-import { Prisma } from '@prisma/client';
+// The client is generated to ../generated/prisma (see the `output` note in
+// schema.prisma), so '@prisma/client' here resolves to the unpopulated stub
+// package and carries no DMMF.
+import { Prisma } from '../generated/prisma';
 import fs from 'node:fs';
 import path from 'node:path';
 
 const AUDITED_TABLES = [
-  'users', 'roles', 'role_permissions', 'families', 'family_members', 'beneficiaries',
+  'users', 'roles', 'role_permissions', 'regions', 'families', 'family_members', 'beneficiaries',
   'social_assessments', 'field_visits', 'assistance_types', 'assistances', 'campaigns',
   'campaign_items', 'warehouses', 'inventory_items', 'stock_in', 'stock_out', 'suppliers',
   'donors', 'donations', 'receipts', 'transactions', 'attachments', 'notifications',
-  'approvals', 'settings',
+  'approvals', 'settings', 'import_batches',
 ] as const;
 
 const EXCLUDED_COLUMNS: Record<string, string[]> = {

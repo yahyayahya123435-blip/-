@@ -4,7 +4,8 @@
  * unless SEED_DEMO_DATA=true is explicitly set — and even then, only for
  * local development, never for the final shipped build.
  */
-import { PrismaClient } from '@prisma/client';
+// Generated client lives outside node_modules — see schema.prisma's `output`.
+import { PrismaClient } from '../generated/prisma';
 
 const prisma = new PrismaClient();
 

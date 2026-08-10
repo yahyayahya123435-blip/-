@@ -20,7 +20,20 @@ export function bootstrapDatabase(dbFilePath: string, projectRoot: string): void
   const db = new Database(dbFilePath);
   try {
     db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
+
+    // Foreign keys stay OFF for the whole migration phase and are turned back
+    // on (plus verified) once every pending migration has been applied.
+    //
+    // This is not optional. Prisma's SQLite migrations rewrite a changed table
+    // by creating new_<table>, copying rows, DROP TABLE <table>, then renaming
+    // — and with foreign keys enforced, that DROP performs an implicit
+    // DELETE FROM which fires ON DELETE CASCADE on every child table. Dropping
+    // `families` would take family_members/social_assessments/field_visits
+    // with it. Prisma's own scripts guard against this with
+    // `PRAGMA foreign_keys=OFF`, but that pragma is a silent no-op inside a
+    // transaction, and each migration here runs in one — so the switch has to
+    // be thrown out here, before any BEGIN.
+    db.pragma('foreign_keys = OFF');
 
     db.exec(`CREATE TABLE IF NOT EXISTS _app_migrations (
       name TEXT PRIMARY KEY,
@@ -50,6 +63,19 @@ export function bootstrapDatabase(dbFilePath: string, projectRoot: string): void
       const sql = fs.readFileSync(sqlPath, 'utf-8');
       applyMigration(folder, sql);
       console.log(`[db-bootstrap] applied migration: ${folder}`);
+    }
+
+    db.pragma('foreign_keys = ON');
+
+    // Re-enabling foreign keys does not retroactively validate rows written
+    // while they were off, so check explicitly. A table rewrite that lost a
+    // parent row must surface here rather than as a mystery failure later.
+    const violations = db.pragma('foreign_key_check') as unknown[];
+    if (violations.length > 0) {
+      throw new Error(
+        `[db-bootstrap] ${violations.length} foreign key violation(s) after migration: ` +
+          JSON.stringify(violations.slice(0, 5)),
+      );
     }
 
     // Constraints/context + audit triggers are re-applied every startup:

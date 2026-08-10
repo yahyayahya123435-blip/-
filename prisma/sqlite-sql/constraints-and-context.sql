@@ -113,6 +113,45 @@ BEGIN
 END;
 
 -- ----------------------------------------------------------------------------
+-- Audit log immutability. There is deliberately no service, IPC channel or
+-- button that edits or deletes an audit row; these triggers make that a
+-- property of the database rather than a property of the current UI, so a
+-- future handler (or anyone poking the file with a SQLite client) cannot
+-- quietly rewrite history either.
+-- ----------------------------------------------------------------------------
+DROP TRIGGER IF EXISTS trg_audit_logs_no_update;
+CREATE TRIGGER trg_audit_logs_no_update
+BEFORE UPDATE ON audit_logs
+FOR EACH ROW
+BEGIN
+  SELECT RAISE(ABORT, 'AUDIT_IMMUTABLE: audit_logs rows cannot be modified');
+END;
+
+DROP TRIGGER IF EXISTS trg_audit_logs_no_delete;
+CREATE TRIGGER trg_audit_logs_no_delete
+BEFORE DELETE ON audit_logs
+FOR EACH ROW
+BEGIN
+  SELECT RAISE(ABORT, 'AUDIT_IMMUTABLE: audit_logs rows cannot be deleted');
+END;
+
+-- ----------------------------------------------------------------------------
+-- Import idempotency. `import_batches.sourceKey` already carries a UNIQUE
+-- index; this guard makes the *reason* explicit at the point of failure so a
+-- repeated import surfaces as DUPLICATE_IMPORT rather than a generic
+-- constraint error, and blocks the "just update the row" escape hatch that
+-- would let the same package be replayed under a new batch id.
+-- ----------------------------------------------------------------------------
+DROP TRIGGER IF EXISTS trg_import_batches_source_key_immutable;
+CREATE TRIGGER trg_import_batches_source_key_immutable
+BEFORE UPDATE OF sourceKey ON import_batches
+FOR EACH ROW
+WHEN NEW.sourceKey <> OLD.sourceKey
+BEGIN
+  SELECT RAISE(ABORT, 'IMMUTABLE_FIELD: import_batches.sourceKey cannot change');
+END;
+
+-- ----------------------------------------------------------------------------
 -- Allowed-value guards (substitute for Prisma enums, which SQLite lacks).
 -- Kept intentionally small: exhaustive enum coverage lives in zod schemas at
 -- the service layer (src/lib/validation). These are the highest-risk fields.
