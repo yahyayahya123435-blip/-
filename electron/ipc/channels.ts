@@ -23,6 +23,7 @@ export const USER_CHANNELS = [
   'users:resetPassword',
   'roles:list',
   'roles:permissions',
+  'loginAttempts:list',
 ] as const;
 
 export const FAMILY_CHANNELS = [
@@ -31,10 +32,21 @@ export const FAMILY_CHANNELS = [
   'families:create',
   'families:update',
   'families:delete',
+  'families:checkDuplicates',
   'familyMembers:list',
   'familyMembers:create',
   'familyMembers:update',
   'familyMembers:delete',
+  'regions:list',
+  'regions:create',
+  'regions:update',
+] as const;
+
+export const IMPORT_CHANNELS = [
+  'import:previewLegacy',
+  'import:runLegacy',
+  'families:listIncomplete',
+  'families:completeData',
 ] as const;
 
 export const BENEFICIARY_CHANNELS = [
@@ -153,6 +165,7 @@ export const ALL_CHANNELS: readonly string[] = [
   ...AUTH_CHANNELS,
   ...USER_CHANNELS,
   ...FAMILY_CHANNELS,
+  ...IMPORT_CHANNELS,
   ...BENEFICIARY_CHANNELS,
   ...SOCIAL_CHANNELS,
   ...ASSISTANCE_CHANNELS,

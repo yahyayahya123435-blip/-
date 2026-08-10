@@ -13,6 +13,7 @@ import { registerAuditHandlers } from './audit';
 import { registerAttachmentHandlers } from './attachments';
 import { registerDocumentHandlers } from './documents';
 import { registerBackupHandlers } from './backup';
+import { registerImportHandlers } from './import';
 
 export function registerAllIpcHandlers(): void {
   registerAuthHandlers();
@@ -30,4 +31,5 @@ export function registerAllIpcHandlers(): void {
   registerAttachmentHandlers();
   registerDocumentHandlers();
   registerBackupHandlers();
+  registerImportHandlers();
 }

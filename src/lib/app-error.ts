@@ -24,6 +24,9 @@ const TRIGGER_MESSAGES: Record<string, string> = {
   FAMILY_MISMATCH: 'بيانات الأسرة والمستفيد غير متطابقة',
   NEGATIVE_STOCK: 'الكمية المطلوبة تتجاوز الرصيد المتاح في المخزون',
   INVALID_ENUM: 'قيمة غير صحيحة لأحد الحقول',
+  AUDIT_IMMUTABLE: 'سجل العمليات غير قابل للتعديل أو الحذف',
+  IMMUTABLE_FIELD: 'لا يمكن تعديل هذا الحقل بعد إنشائه',
+  DUPLICATE_IMPORT: 'تم استيراد هذا الملف مسبقاً ولن يتم تكراره',
 };
 
 export function toSafeError(error: unknown): AppError {

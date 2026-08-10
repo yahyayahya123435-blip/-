@@ -59,6 +59,11 @@ extraResources:
     to: prisma/migrations
   - from: prisma/sqlite-sql
     to: prisma/sqlite-sql
+  # The association's member register, read by the first-run import wizard.
+  # Shipped as data rather than baked into code so the source of the 330
+  # families stays inspectable on the installed machine.
+  - from: resources/seed
+    to: resources/seed
 
 asarUnpack:
   - "**/*.node"

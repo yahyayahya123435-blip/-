@@ -56,17 +56,47 @@ export const loginInput = z.object({
   password: z.string().min(1).max(200),
 });
 
+/**
+ * Records the attempt and returns the user on success, null otherwise.
+ *
+ * The caller gets a bare null for every failure mode — wrong password,
+ * unknown username, deactivated account — so the login screen cannot be used
+ * to enumerate valid usernames. The distinguishing `reason` goes to
+ * login_attempts, where an administrator can see it and an attacker cannot.
+ */
 export async function verifyLogin(username: string, password: string) {
   const prisma = getPrisma();
   const user = await prisma.user.findUnique({
     where: { username },
     include: { role: true },
   });
-  if (!user || !user.isActive) return null;
+
+  const record = (successful: boolean, reason?: string) =>
+    prisma.loginAttempt.create({ data: { username, successful, reason: reason ?? null } });
+
+  if (!user) {
+    await record(false, 'UNKNOWN_USER');
+    return null;
+  }
+  if (!user.isActive) {
+    await record(false, 'INACTIVE_USER');
+    return null;
+  }
   const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) return null;
+  if (!ok) {
+    await record(false, 'BAD_PASSWORD');
+    return null;
+  }
+
+  await record(true);
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   return user;
+}
+
+/** Recent login attempts, newest first — surfaced on the users screen. */
+export async function listLoginAttempts(limit = 50) {
+  const prisma = getPrisma();
+  return prisma.loginAttempt.findMany({ orderBy: { attemptedAt: 'desc' }, take: limit });
 }
 
 export async function changePassword(userId: string, currentPassword: string, newPassword: string) {

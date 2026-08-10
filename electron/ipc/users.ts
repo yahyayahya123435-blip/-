@@ -10,6 +10,7 @@ import {
   createUserInput,
   updateUserInput,
 } from '../../src/services/users';
+import { listLoginAttempts } from '../../src/lib/auth';
 import { z } from 'zod';
 
 export function registerUserHandlers(): void {
@@ -39,5 +40,9 @@ export function registerUserHandlers(): void {
 
   handlePermitted<{ roleId: string }>('roles:permissions', 'users', 'view', async ({ payload }) =>
     getRolePermissions(payload.roleId),
+  );
+
+  handlePermitted<{ limit?: number }>('loginAttempts:list', 'users', 'view', async ({ payload }) =>
+    listLoginAttempts(Math.min(Math.max(payload?.limit ?? 50, 1), 200)),
   );
 }

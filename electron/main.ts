@@ -5,6 +5,7 @@ import { setRuntimePaths } from './runtime-context';
 import { getResourceRoot } from './db-version';
 import { bootstrapDatabase } from '../src/lib/db-bootstrap';
 import { initPrisma, disconnectPrisma } from '../src/lib/db';
+import { seedCoreData } from '../src/services/seed';
 import { initLogger, logger } from '../src/lib/logger';
 import { registerAllIpcHandlers } from './ipc';
 import { startStaticServer } from './static-server';
@@ -61,7 +62,11 @@ app.whenReady().then(async () => {
 
   try {
     bootstrapDatabase(paths.dbFile, getResourceRoot());
-    initPrisma(paths.dbFile);
+    const prisma = initPrisma(paths.dbFile);
+    // Idempotent reference data (roles, permissions, lookups, settings).
+    // Without this a fresh installation has no 'Super Admin' role and the
+    // first-run Setup screen cannot create the first user at all.
+    await seedCoreData(prisma);
     registerAllIpcHandlers();
     logger.info('Application started', { version: app.getVersion() });
   } catch (err) {
