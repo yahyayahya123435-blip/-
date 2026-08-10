@@ -2,16 +2,35 @@
 import { z } from 'zod';
 import { getPrisma } from '../lib/db';
 import { runWithAuditContext, type AuditActor } from '../lib/audit-context';
-import { paginationInput, paginationSkipTake, fieldVisitStatusEnum } from '../lib/validation';
+import {
+  paginationInput, paginationSkipTake, fieldVisitStatusEnum, housingTypeEnum,
+  needLevelEnum, filsAmount,
+} from '../lib/validation';
+
+/** Small non-negative headcount, e.g. children/orphans/students in a household. */
+const householdCount = z.number().int().min(0).max(100);
 
 export const createAssessmentInput = z.object({
   familyId: z.string().min(1),
   beneficiaryId: z.string().optional(),
   researcherId: z.string().optional(),
   assessmentDate: z.coerce.date().default(() => new Date()),
+  monthlyIncomeFils: filsAmount.default(0),
+  monthlyExpensesFils: filsAmount.default(0),
   economicLevel: z.string().max(50).optional(),
   housingCondition: z.string().max(300).optional(),
+  housingOwnership: housingTypeEnum.optional(),
+  roomsCount: z.number().int().min(0).max(50).optional(),
   healthCondition: z.string().max(300).optional(),
+  chronicDiseases: z.string().max(1000).optional(),
+  disabilities: z.string().max(1000).optional(),
+  childrenCount: householdCount.optional(),
+  orphansCount: householdCount.optional(),
+  studentsCount: householdCount.optional(),
+  unemployedCount: householdCount.optional(),
+  financialObligations: z.string().max(2000).optional(),
+  basicNeeds: z.string().max(2000).optional(),
+  needLevel: needLevelEnum.optional(),
   educationLevel: z.string().max(300).optional(),
   recommendation: z.string().max(2000).optional(),
   score: z.number().int().min(0).max(100).optional(),
@@ -58,10 +77,13 @@ export async function deleteAssessment(actor: AuditActor, id: string) {
 
 export const createFieldVisitInput = z.object({
   familyId: z.string().min(1),
+  beneficiaryId: z.string().optional(),
   userId: z.string().optional(),
   visitDate: z.coerce.date().default(() => new Date()),
   purpose: z.string().max(300).optional(),
   findings: z.string().max(2000).optional(),
+  recommendation: z.string().max(2000).optional(),
+  notes: z.string().max(2000).optional(),
   status: fieldVisitStatusEnum.default('مكتملة'),
   nextVisitAt: z.coerce.date().optional(),
 });

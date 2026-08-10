@@ -113,6 +113,17 @@ jobs:
           Copy-Item $builtFile "node_modules/better-sqlite3/prebuilds/win32-x64.node" -Force
           Write-Host "Installed rebuilt binary over prebuilds/win32-x64.node (the file better-sqlite3's loader actually checks first)"
 
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run tests
+        # Exercises the real service layer against a real SQLite file:
+        # first run + Super Admin, permissions, the 330-family register
+        # import (and its refusal to run twice), stock rules, audit
+        # immutability, attachments, DOCX/XLSX, backup/restore, and the
+        # phone transfer package. A failure here must stop the release.
+        run: npm test
+
       - name: Build Next.js static export
         run: npm run build
 
