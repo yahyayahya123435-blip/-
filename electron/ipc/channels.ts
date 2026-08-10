@@ -49,6 +49,14 @@ export const IMPORT_CHANNELS = [
   'families:completeData',
 ] as const;
 
+export const TRANSFER_CHANNELS = [
+  'transfer:pickAndPreview',
+  'transfer:commit',
+  'transfer:exportForMobile',
+  'transfer:history',
+  'transfer:revealFile',
+] as const;
+
 export const BENEFICIARY_CHANNELS = [
   'beneficiaries:list',
   'beneficiaries:get',
@@ -166,6 +174,7 @@ export const ALL_CHANNELS: readonly string[] = [
   ...USER_CHANNELS,
   ...FAMILY_CHANNELS,
   ...IMPORT_CHANNELS,
+  ...TRANSFER_CHANNELS,
   ...BENEFICIARY_CHANNELS,
   ...SOCIAL_CHANNELS,
   ...ASSISTANCE_CHANNELS,

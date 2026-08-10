@@ -14,6 +14,7 @@ import { registerAttachmentHandlers } from './attachments';
 import { registerDocumentHandlers } from './documents';
 import { registerBackupHandlers } from './backup';
 import { registerImportHandlers } from './import';
+import { registerTransferHandlers } from './transfer';
 
 export function registerAllIpcHandlers(): void {
   registerAuthHandlers();
@@ -32,4 +33,5 @@ export function registerAllIpcHandlers(): void {
   registerDocumentHandlers();
   registerBackupHandlers();
   registerImportHandlers();
+  registerTransferHandlers();
 }
