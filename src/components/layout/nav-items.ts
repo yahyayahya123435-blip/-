@@ -22,6 +22,8 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/reports', label: 'التقارير', icon: '📊', module: 'reports' },
   { href: '/documents', label: 'المستندات', icon: '📁', module: 'documents' },
   { href: '/users', label: 'المستخدمون والصلاحيات', icon: '🔐', module: 'users' },
+  { href: '/import', label: 'استيراد سجل المنتسبين', icon: '📥', module: 'families' },
+  { href: '/transfer', label: 'النقل من الهاتف', icon: '📱', module: 'transfer' },
   { href: '/backup', label: 'النسخ الاحتياطي', icon: '💾', module: 'backup' },
   { href: '/settings', label: 'الإعدادات', icon: '⚙️', module: 'settings' },
 ];

@@ -37,7 +37,10 @@ export default function SetupPage() {
     try {
       await setup(fullName, username, password);
       notify('تم إنشاء حساب المدير العام بنجاح', 'success');
-      router.replace('/dashboard');
+      // First run continues straight into the register import — it is the
+      // next thing a new installation needs, and the wizard itself is
+      // read-only until the operator confirms.
+      router.replace('/import');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'حدث خطأ غير متوقع');
     } finally {
