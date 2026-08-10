@@ -28,6 +28,10 @@ interface FieldVisit {
   visitDate: string;
   purpose?: string | null;
   findings?: string | null;
+  recommendation?: string | null;
+  notes?: string | null;
+  beneficiaryId?: string | null;
+  beneficiary?: { fullName: string } | null;
   status: string;
   nextVisitAt?: string | null;
   family?: FamilyRef | null;
@@ -48,14 +52,18 @@ type FieldVisitFormState = {
   familyId: string;
   familyLabel: string;
   visitDate: string;
+  beneficiaryId: string;
   purpose: string;
   findings: string;
+  recommendation: string;
+  notes: string;
   status: string;
   nextVisitAt: string;
 };
 
 const emptyForm: FieldVisitFormState = {
-  familyId: '', familyLabel: '', visitDate: todayStr(), purpose: '', findings: '', status: 'مكتملة', nextVisitAt: '',
+  familyId: '', familyLabel: '', beneficiaryId: '', visitDate: todayStr(), purpose: '', findings: '',
+  recommendation: '', notes: '', status: 'مكتملة', nextVisitAt: '',
 };
 
 export default function FieldVisitsPage() {
@@ -108,8 +116,11 @@ export default function FieldVisitsPage() {
       familyId: visit.familyId,
       familyLabel: visit.family ? `${visit.family.headOfFamilyName} (${visit.family.familyCode})` : '',
       visitDate: visit.visitDate ? visit.visitDate.slice(0, 10) : todayStr(),
+      beneficiaryId: visit.beneficiaryId ?? '',
       purpose: visit.purpose ?? '',
       findings: visit.findings ?? '',
+      recommendation: visit.recommendation ?? '',
+      notes: visit.notes ?? '',
       status: visit.status ?? 'مكتملة',
       nextVisitAt: visit.nextVisitAt ? visit.nextVisitAt.slice(0, 10) : '',
     });
@@ -127,8 +138,11 @@ export default function FieldVisitsPage() {
       const payload = {
         familyId: form.familyId,
         visitDate: form.visitDate || undefined,
+        beneficiaryId: form.beneficiaryId || undefined,
         purpose: form.purpose || undefined,
         findings: form.findings || undefined,
+        recommendation: form.recommendation || undefined,
+        notes: form.notes || undefined,
         status: form.status || 'مكتملة',
         nextVisitAt: form.nextVisitAt || undefined,
       };
@@ -220,11 +234,14 @@ export default function FieldVisitsPage() {
               <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
                 <div><span className="text-gray-500">تاريخ الزيارة: </span>{detail.visitDate.slice(0, 10)}</div>
                 <div><span className="text-gray-500">الغرض: </span>{detail.purpose ?? '—'}</div>
+                <div><span className="text-gray-500">المستفيد: </span>{detail.beneficiary?.fullName ?? '—'}</div>
                 <div><span className="text-gray-500">الحالة: </span>{detail.status}</div>
                 <div><span className="text-gray-500">الزيارة القادمة: </span>{detail.nextVisitAt ? detail.nextVisitAt.slice(0, 10) : '—'}</div>
                 <div><span className="text-gray-500">القائم بالزيارة: </span>{detail.user?.fullName ?? '—'}</div>
               </div>
-              {detail.findings && <p className="mt-3 text-sm text-gray-600">النتائج: {detail.findings}</p>}
+              {detail.findings && <p className="mt-3 text-sm text-gray-600">النتيجة: {detail.findings}</p>}
+              {detail.recommendation && <p className="mt-1 text-sm text-gray-600">التوصية: {detail.recommendation}</p>}
+              {detail.notes && <p className="mt-1 text-sm text-gray-600">ملاحظات: {detail.notes}</p>}
             </div>
 
             <div className="flex justify-end">
@@ -377,6 +394,22 @@ function FieldVisitFormModal({
   saving: boolean;
   editing: boolean;
 }) {
+  const [beneficiaryOptions, setBeneficiaryOptions] = useState<{ id: string; fullName: string }[]>([]);
+
+  // A visit is recorded against a family; naming a specific beneficiary is
+  // optional, so the list is only fetched once a family has been picked.
+  useEffect(() => {
+    if (!form.familyId) {
+      setBeneficiaryOptions([]);
+      return;
+    }
+    apiInvoke<{ rows: { id: string; fullName: string }[] }>('beneficiaries:list', {
+      familyId: form.familyId, page: 1, pageSize: 50,
+    })
+      .then((res) => setBeneficiaryOptions(res.rows))
+      .catch(() => setBeneficiaryOptions([]));
+  }, [form.familyId]);
+
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
       <div className="card max-h-[90vh] w-full max-w-2xl overflow-y-auto p-6">
@@ -385,8 +418,16 @@ function FieldVisitFormModal({
           <FamilyPicker
             familyId={form.familyId}
             familyLabel={form.familyLabel}
-            onPick={(id, label) => setForm({ ...form, familyId: id, familyLabel: label })}
-            onClear={() => setForm({ ...form, familyId: '', familyLabel: '' })}
+            onPick={(id, label) => setForm({ ...form, familyId: id, familyLabel: label, beneficiaryId: '' })}
+            onClear={() => setForm({ ...form, familyId: '', familyLabel: '', beneficiaryId: '' })}
+          />
+          <Select
+            label="المستفيد (اختياري)"
+            placeholder="بدون"
+            options={beneficiaryOptions.map((b) => ({ value: b.id, label: b.fullName }))}
+            value={form.beneficiaryId}
+            onChange={(e) => setForm({ ...form, beneficiaryId: e.target.value })}
+            disabled={!form.familyId}
           />
           <TextInput label="تاريخ الزيارة" type="date" required value={form.visitDate} onChange={(e) => setForm({ ...form, visitDate: e.target.value })} />
           <Select label="الحالة" options={STATUS_OPTIONS} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} />
@@ -395,7 +436,13 @@ function FieldVisitFormModal({
             <TextInput label="الغرض من الزيارة" value={form.purpose} onChange={(e) => setForm({ ...form, purpose: e.target.value })} />
           </div>
           <div className="col-span-2">
-            <TextArea label="النتائج" value={form.findings} onChange={(e) => setForm({ ...form, findings: e.target.value })} />
+            <TextArea label="النتيجة" value={form.findings} onChange={(e) => setForm({ ...form, findings: e.target.value })} />
+          </div>
+          <div className="col-span-2">
+            <TextArea label="التوصية" value={form.recommendation} onChange={(e) => setForm({ ...form, recommendation: e.target.value })} />
+          </div>
+          <div className="col-span-2">
+            <TextArea label="ملاحظات" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </div>
           <div className="col-span-2 flex justify-end gap-2">
             <button type="button" className="btn-secondary" onClick={onClose}>إلغاء</button>

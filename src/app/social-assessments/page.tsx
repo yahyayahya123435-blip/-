@@ -10,6 +10,19 @@ import { useAuth } from '@/lib/client/auth-context';
 import { apiInvoke, ApiError } from '@/lib/client/api';
 import { AttachmentsPanel } from '@/components/shared/AttachmentsPanel';
 import { ExportButtons } from '@/components/shared/ExportButtons';
+import { dinarInputToFils } from '@/lib/client/money';
+
+/** Optional integer field: blank stays blank rather than becoming 0. */
+function textToNum(text: string): number | undefined {
+  const trimmed = text.trim();
+  if (trimmed === '') return undefined;
+  const value = Number(trimmed);
+  return Number.isInteger(value) && value >= 0 ? value : undefined;
+}
+
+function numToText(value: number | null | undefined): string {
+  return value === null || value === undefined ? '' : String(value);
+}
 
 interface FamilyRef {
   familyCode: string;
@@ -32,9 +45,22 @@ interface Assessment {
   familyId: string;
   beneficiaryId?: string | null;
   assessmentDate: string;
+  monthlyIncomeFils?: number;
+  monthlyExpensesFils?: number;
   economicLevel?: string | null;
   housingCondition?: string | null;
+  housingOwnership?: string | null;
+  roomsCount?: number | null;
   healthCondition?: string | null;
+  chronicDiseases?: string | null;
+  disabilities?: string | null;
+  childrenCount?: number | null;
+  orphansCount?: number | null;
+  studentsCount?: number | null;
+  unemployedCount?: number | null;
+  financialObligations?: string | null;
+  basicNeeds?: string | null;
+  needLevel?: string | null;
   educationLevel?: string | null;
   recommendation?: string | null;
   score?: number | null;
@@ -50,6 +76,17 @@ const ECONOMIC_OPTIONS = [
   { value: 'ميسور', label: 'ميسور' },
 ];
 
+const OWNERSHIP_OPTIONS = [
+  { value: 'ملك', label: 'ملك' },
+  { value: 'إيجار', label: 'إيجار' },
+  { value: 'أخرى', label: 'أخرى' },
+];
+const NEED_LEVEL_OPTIONS = [
+  { value: 'شديد الحاجة', label: 'شديد الحاجة' },
+  { value: 'متوسط الحاجة', label: 'متوسط الحاجة' },
+  { value: 'قليل الحاجة', label: 'قليل الحاجة' },
+];
+
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -59,9 +96,22 @@ type AssessmentFormState = {
   familyLabel: string;
   beneficiaryId: string;
   assessmentDate: string;
+  monthlyIncome: string;
+  monthlyExpenses: string;
   economicLevel: string;
   housingCondition: string;
+  housingOwnership: string;
+  roomsCount: string;
   healthCondition: string;
+  chronicDiseases: string;
+  disabilities: string;
+  childrenCount: string;
+  orphansCount: string;
+  studentsCount: string;
+  unemployedCount: string;
+  financialObligations: string;
+  basicNeeds: string;
+  needLevel: string;
   educationLevel: string;
   recommendation: string;
   score: string;
@@ -69,8 +119,13 @@ type AssessmentFormState = {
 };
 
 const emptyForm: AssessmentFormState = {
-  familyId: '', familyLabel: '', beneficiaryId: '', assessmentDate: todayStr(), economicLevel: '',
-  housingCondition: '', healthCondition: '', educationLevel: '', recommendation: '', score: '', notes: '',
+  familyId: '', familyLabel: '', beneficiaryId: '', assessmentDate: todayStr(),
+  monthlyIncome: '', monthlyExpenses: '', economicLevel: '',
+  housingCondition: '', housingOwnership: '', roomsCount: '',
+  healthCondition: '', chronicDiseases: '', disabilities: '',
+  childrenCount: '', orphansCount: '', studentsCount: '', unemployedCount: '',
+  financialObligations: '', basicNeeds: '', needLevel: '',
+  educationLevel: '', recommendation: '', score: '', notes: '',
 };
 
 export default function SocialAssessmentsPage() {
@@ -124,9 +179,22 @@ export default function SocialAssessmentsPage() {
       familyLabel: assessment.family ? `${assessment.family.headOfFamilyName} (${assessment.family.familyCode})` : '',
       beneficiaryId: assessment.beneficiaryId ?? '',
       assessmentDate: assessment.assessmentDate ? assessment.assessmentDate.slice(0, 10) : todayStr(),
+      monthlyIncome: assessment.monthlyIncomeFils ? (assessment.monthlyIncomeFils / 1000).toString() : '',
+      monthlyExpenses: assessment.monthlyExpensesFils ? (assessment.monthlyExpensesFils / 1000).toString() : '',
       economicLevel: assessment.economicLevel ?? '',
       housingCondition: assessment.housingCondition ?? '',
+      housingOwnership: assessment.housingOwnership ?? '',
+      roomsCount: numToText(assessment.roomsCount),
       healthCondition: assessment.healthCondition ?? '',
+      chronicDiseases: assessment.chronicDiseases ?? '',
+      disabilities: assessment.disabilities ?? '',
+      childrenCount: numToText(assessment.childrenCount),
+      orphansCount: numToText(assessment.orphansCount),
+      studentsCount: numToText(assessment.studentsCount),
+      unemployedCount: numToText(assessment.unemployedCount),
+      financialObligations: assessment.financialObligations ?? '',
+      basicNeeds: assessment.basicNeeds ?? '',
+      needLevel: assessment.needLevel ?? '',
       educationLevel: assessment.educationLevel ?? '',
       recommendation: assessment.recommendation ?? '',
       score: assessment.score !== null && assessment.score !== undefined ? String(assessment.score) : '',
@@ -147,9 +215,22 @@ export default function SocialAssessmentsPage() {
         familyId: form.familyId,
         beneficiaryId: form.beneficiaryId || undefined,
         assessmentDate: form.assessmentDate || undefined,
+        monthlyIncomeFils: form.monthlyIncome ? dinarInputToFils(form.monthlyIncome) : 0,
+        monthlyExpensesFils: form.monthlyExpenses ? dinarInputToFils(form.monthlyExpenses) : 0,
         economicLevel: form.economicLevel || undefined,
         housingCondition: form.housingCondition || undefined,
+        housingOwnership: form.housingOwnership || undefined,
+        roomsCount: textToNum(form.roomsCount),
         healthCondition: form.healthCondition || undefined,
+        chronicDiseases: form.chronicDiseases || undefined,
+        disabilities: form.disabilities || undefined,
+        childrenCount: textToNum(form.childrenCount),
+        orphansCount: textToNum(form.orphansCount),
+        studentsCount: textToNum(form.studentsCount),
+        unemployedCount: textToNum(form.unemployedCount),
+        financialObligations: form.financialObligations || undefined,
+        basicNeeds: form.basicNeeds || undefined,
+        needLevel: form.needLevel || undefined,
         educationLevel: form.educationLevel || undefined,
         recommendation: form.recommendation || undefined,
         score: form.score ? Number(form.score) : undefined,
@@ -428,13 +509,30 @@ function AssessmentFormModal({
             disabled={!form.familyId}
           />
           <TextInput label="تاريخ البحث" type="date" required value={form.assessmentDate} onChange={(e) => setForm({ ...form, assessmentDate: e.target.value })} />
+          <TextInput label="الدخل الشهري (د.أ)" type="number" step="0.01" value={form.monthlyIncome} onChange={(e) => setForm({ ...form, monthlyIncome: e.target.value })} />
+          <TextInput label="المصاريف الشهرية (د.أ)" type="number" step="0.01" value={form.monthlyExpenses} onChange={(e) => setForm({ ...form, monthlyExpenses: e.target.value })} />
           <Select label="المستوى الاقتصادي" placeholder="اختر" options={ECONOMIC_OPTIONS} value={form.economicLevel} onChange={(e) => setForm({ ...form, economicLevel: e.target.value })} />
-          <TextInput label="حالة السكن" value={form.housingCondition} onChange={(e) => setForm({ ...form, housingCondition: e.target.value })} />
+          <Select label="ملكية السكن" placeholder="اختر" options={OWNERSHIP_OPTIONS} value={form.housingOwnership} onChange={(e) => setForm({ ...form, housingOwnership: e.target.value })} />
+          <TextInput label="وضع السكن" value={form.housingCondition} onChange={(e) => setForm({ ...form, housingCondition: e.target.value })} />
+          <TextInput label="عدد الغرف" type="number" min={0} value={form.roomsCount} onChange={(e) => setForm({ ...form, roomsCount: e.target.value })} />
           <TextInput label="الحالة الصحية" value={form.healthCondition} onChange={(e) => setForm({ ...form, healthCondition: e.target.value })} />
+          <TextInput label="الأمراض المزمنة" value={form.chronicDiseases} onChange={(e) => setForm({ ...form, chronicDiseases: e.target.value })} />
+          <TextInput label="الإعاقات" value={form.disabilities} onChange={(e) => setForm({ ...form, disabilities: e.target.value })} />
+          <TextInput label="عدد الأطفال" type="number" min={0} value={form.childrenCount} onChange={(e) => setForm({ ...form, childrenCount: e.target.value })} />
+          <TextInput label="عدد الأيتام" type="number" min={0} value={form.orphansCount} onChange={(e) => setForm({ ...form, orphansCount: e.target.value })} />
+          <TextInput label="عدد الطلاب" type="number" min={0} value={form.studentsCount} onChange={(e) => setForm({ ...form, studentsCount: e.target.value })} />
+          <TextInput label="عدد العاطلين عن العمل" type="number" min={0} value={form.unemployedCount} onChange={(e) => setForm({ ...form, unemployedCount: e.target.value })} />
+          <Select label="درجة الاحتياج" placeholder="اختر" options={NEED_LEVEL_OPTIONS} value={form.needLevel} onChange={(e) => setForm({ ...form, needLevel: e.target.value })} />
           <TextInput label="المستوى التعليمي" value={form.educationLevel} onChange={(e) => setForm({ ...form, educationLevel: e.target.value })} />
           <TextInput label="الدرجة (0-100)" type="number" min={0} max={100} value={form.score} onChange={(e) => setForm({ ...form, score: e.target.value })} />
           <div className="col-span-2">
-            <TextArea label="التوصية" value={form.recommendation} onChange={(e) => setForm({ ...form, recommendation: e.target.value })} />
+            <TextArea label="الالتزامات المالية" value={form.financialObligations} onChange={(e) => setForm({ ...form, financialObligations: e.target.value })} />
+          </div>
+          <div className="col-span-2">
+            <TextArea label="الاحتياجات الأساسية" value={form.basicNeeds} onChange={(e) => setForm({ ...form, basicNeeds: e.target.value })} />
+          </div>
+          <div className="col-span-2">
+            <TextArea label="توصية الباحث" value={form.recommendation} onChange={(e) => setForm({ ...form, recommendation: e.target.value })} />
           </div>
           <div className="col-span-2">
             <TextArea label="ملاحظات" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />

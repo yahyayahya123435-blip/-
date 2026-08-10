@@ -97,7 +97,11 @@ export async function listFieldVisits(input: z.infer<typeof listFieldVisitsInput
   const [rows, total] = await Promise.all([
     prisma.fieldVisit.findMany({
       where, orderBy: { visitDate: 'desc' }, ...paginationSkipTake(parsed),
-      include: { family: { select: { familyCode: true, headOfFamilyName: true } }, user: { select: { fullName: true } } },
+      include: {
+        family: { select: { familyCode: true, headOfFamilyName: true } },
+        beneficiary: { select: { fullName: true } },
+        user: { select: { fullName: true } },
+      },
     }),
     prisma.fieldVisit.count({ where }),
   ]);
@@ -106,7 +110,10 @@ export async function listFieldVisits(input: z.infer<typeof listFieldVisitsInput
 
 export async function getFieldVisit(id: string) {
   const prisma = getPrisma();
-  return prisma.fieldVisit.findUniqueOrThrow({ where: { id }, include: { family: true, user: true } });
+  return prisma.fieldVisit.findUniqueOrThrow({
+    where: { id },
+    include: { family: true, beneficiary: true, user: true },
+  });
 }
 
 export async function createFieldVisit(actor: AuditActor, input: z.infer<typeof createFieldVisitInput>) {
